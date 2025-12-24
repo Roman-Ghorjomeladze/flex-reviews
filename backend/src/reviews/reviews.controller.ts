@@ -232,6 +232,84 @@ export class ReviewsController {
   }
 
   /**
+   * GET /api/reviews/user/:userId
+   * Get user information by userId
+   */
+  @Get('user/:userId')
+  @ApiOperation({
+    summary: 'Get user information',
+    description: 'Returns user information by userId (sourceId)',
+  })
+  @ApiParam({ name: 'userId', description: 'User ID (sourceId)' })
+  @ApiOkResponse({
+    description: 'User information retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'success' },
+        user: {
+          type: 'object',
+          properties: {
+            userId: { type: 'string' },
+            userName: { type: 'string' },
+            reviewCount: { type: 'number' },
+            averageStars: { type: 'number', nullable: true },
+          },
+        },
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  async getUser(@Param('userId') userId: string) {
+    const user = await this.reviewsService.getUserBySourceId(userId);
+    if (!user) {
+      return {
+        status: 'error',
+        message: 'User not found',
+      };
+    }
+    return {
+      status: 'success',
+      user,
+    };
+  }
+
+  /**
+   * GET /api/reviews/user/:userId/reviews
+   * Get reviews by user ID with pagination
+   */
+  @Get('user/:userId/reviews')
+  @ApiOperation({
+    summary: 'Get reviews by user',
+    description: 'Returns all reviews written by a specific user',
+  })
+  @ApiParam({ name: 'userId', description: 'User ID (sourceId)' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 50, max: 100)' })
+  @ApiOkResponse({
+    description: 'Reviews retrieved successfully',
+    type: ReviewsResponseDto,
+  })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  async getReviewsByUser(
+    @Param('userId') userId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pagination: PaginationOptions = {};
+    if (page) pagination.page = parseInt(page, 10);
+    if (limit) pagination.limit = parseInt(limit, 10);
+
+    const result = await this.reviewsService.getReviewsByUser(userId, pagination);
+    return {
+      status: 'success',
+      count: result.data.length,
+      reviews: result.data,
+      pagination: result.pagination,
+    };
+  }
+
+  /**
    * GET /api/reviews/approved/:propertyId?
    * Get approved reviews for public display
    * If propertyId is provided, filter by property

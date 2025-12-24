@@ -1,435 +1,521 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { Injectable, Inject } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, SelectQueryBuilder } from "typeorm";
 import {
-  NormalizedReview,
-  ReviewFilters,
-  ReviewSort,
-  PaginationOptions,
-  PaginatedResponse,
-} from './interfaces/normalized-review.interface';
-import { LoggerService } from '../common/logger/logger.service';
-import { Review } from '../database/entities/review.entity';
-import { Business } from '../database/entities/business.entity';
-import { User } from '../database/entities/user.entity';
-import { ReviewCategory } from '../database/entities/review-category.entity';
+	NormalizedReview,
+	ReviewFilters,
+	ReviewSort,
+	PaginationOptions,
+	PaginatedResponse,
+} from "./interfaces/normalized-review.interface";
+import { LoggerService } from "../common/logger/logger.service";
+import { Review } from "../database/entities/review.entity";
+import { Business } from "../database/entities/business.entity";
+import { User } from "../database/entities/user.entity";
+import { ReviewCategory } from "../database/entities/review-category.entity";
 
 @Injectable()
 export class ReviewsService {
-  constructor(
-    @InjectRepository(Review)
-    private readonly reviewRepository: Repository<Review>,
-    @InjectRepository(Business)
-    private readonly businessRepository: Repository<Business>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-    @InjectRepository(ReviewCategory)
-    private readonly categoryRepository: Repository<ReviewCategory>,
-    @Inject(LoggerService) private readonly logger?: LoggerService,
-  ) {}
+	constructor(
+		@InjectRepository(Review)
+		private readonly reviewRepository: Repository<Review>,
+		@InjectRepository(Business)
+		private readonly businessRepository: Repository<Business>,
+		@InjectRepository(User)
+		private readonly userRepository: Repository<User>,
+		@InjectRepository(ReviewCategory)
+		private readonly categoryRepository: Repository<ReviewCategory>,
+		@Inject(LoggerService) private readonly logger?: LoggerService
+	) {}
 
-  /**
-   * Convert database Review entity to NormalizedReview format
-   */
-  private reviewToNormalized(
-    review: Review & { business?: Business; user?: User; categories?: ReviewCategory[] },
-  ): NormalizedReview {
-    const business = review.business;
-    const user = review.user;
-    const categories = review.categories || [];
+	/**
+	 * Convert database Review entity to NormalizedReview format
+	 */
+	private reviewToNormalized(
+		review: Review & { business?: Business; user?: User; categories?: ReviewCategory[] }
+	): NormalizedReview {
+		const business = review.business;
+		const user = review.user;
+		const categories = review.categories || [];
 
-    // Build category ratings object
-    const categoryRatings: NormalizedReview['categories'] = {};
-    categories.forEach((cat) => {
-      // Use category name as-is (should match interface keys)
-      const key = cat.category as keyof NormalizedReview['categories'];
-      categoryRatings[key] = cat.rating;
-    });
+		// Build category ratings object
+		const categoryRatings: NormalizedReview["categories"] = {};
+		categories.forEach((cat) => {
+			// Use category name as-is (should match interface keys)
+			const key = cat.category as keyof NormalizedReview["categories"];
+			categoryRatings[key] = cat.rating;
+		});
 
-    // Use business.sourceId as propertyId (or derive from name if needed)
-    const propertyId = business?.sourceId || `business-${review.businessId}`;
+		// Use business.sourceId as propertyId (or derive from name if needed)
+		const propertyId = business?.sourceId || `business-${review.businessId}`;
 
-    return {
-      id: review.id,
-      propertyId,
-      propertyName: business?.name || 'Unknown Business',
-      channel: review.channel,
-      type: review.type as 'guest-to-host' | 'host-to-guest',
-      overallRating: Number(review.stars),
-      categories: categoryRatings,
-      comment: review.text,
-      guestName: user?.name || 'Anonymous',
-      submittedAt: review.date.toISOString(),
-      approved: review.approved,
-    };
-  }
+		// Ensure userId is always a valid string to prevent undefined values
+		let userId = "";
+		if (user && user.sourceId) {
+			userId = String(user.sourceId);
+		} else if (user) {
+			// User exists but sourceId is missing - this should not happen
+			this.logger?.warn(`User sourceId is missing for review ${review.id}, user ID: ${review.userId}`);
+		}
 
-  /**
-   * Build query with filters applied
-   */
-  private buildFilteredQuery(
-    filters?: ReviewFilters,
-  ): SelectQueryBuilder<Review> {
-    const query = this.reviewRepository
-      .createQueryBuilder('review')
-      .leftJoinAndSelect('review.business', 'business')
-      .leftJoinAndSelect('review.user', 'user')
-      .leftJoinAndSelect('review.categories', 'categories');
+		return {
+			id: review.id,
+			propertyId,
+			propertyName: business?.name || "Unknown Business",
+			channel: review.channel,
+			type: review.type as "guest-to-host" | "host-to-guest",
+			overallRating: Number(review.stars),
+			categories: categoryRatings,
+			comment: review.text,
+			guestName: user?.name || "Anonymous",
+			userId: userId || "", // Ensure it's never undefined
+			submittedAt: review.date.toISOString(),
+			approved: review.approved,
+		};
+	}
 
-    if (filters) {
-      if (filters.listingId) {
-        // Filter by single business sourceId
-        query.andWhere('business.sourceId = :listingId', {
-          listingId: filters.listingId,
-        });
-      }
+	/**
+	 * Build query with filters applied
+	 */
+	private buildFilteredQuery(filters?: ReviewFilters): SelectQueryBuilder<Review> {
+		const query = this.reviewRepository
+			.createQueryBuilder("review")
+			.leftJoinAndSelect("review.business", "business")
+			.leftJoinAndSelect("review.user", "user")
+			.leftJoinAndSelect("review.categories", "categories");
 
-      if (filters.listingIds && filters.listingIds.length > 0) {
-        // Filter by multiple business sourceIds
-        query.andWhere('business.sourceId IN (:...listingIds)', {
-          listingIds: filters.listingIds,
-        });
-      }
+		if (filters) {
+			if (filters.listingId) {
+				// Filter by single business sourceId
+				query.andWhere("business.sourceId = :listingId", {
+					listingId: filters.listingId,
+				});
+			}
 
-      if (filters.propertyName) {
-        query.andWhere('business.name ILIKE :propertyName', {
-          propertyName: `%${filters.propertyName}%`,
-        });
-      }
+			if (filters.listingIds && filters.listingIds.length > 0) {
+				// Filter by multiple business sourceIds
+				query.andWhere("business.sourceId IN (:...listingIds)", {
+					listingIds: filters.listingIds,
+				});
+			}
 
-      if (filters.propertyCity) {
-        query.andWhere('business.city ILIKE :propertyCity', {
-          propertyCity: `%${filters.propertyCity}%`,
-        });
-      }
+			if (filters.propertyName) {
+				query.andWhere("business.name ILIKE :propertyName", {
+					propertyName: `%${filters.propertyName}%`,
+				});
+			}
 
-      if (filters.propertyState) {
-        query.andWhere('business.state ILIKE :propertyState', {
-          propertyState: `%${filters.propertyState}%`,
-        });
-      }
+			if (filters.propertyCity) {
+				query.andWhere("business.city ILIKE :propertyCity", {
+					propertyCity: `%${filters.propertyCity}%`,
+				});
+			}
 
-      if (filters.propertyPostalCode) {
-        query.andWhere('business.postalCode = :propertyPostalCode', {
-          propertyPostalCode: filters.propertyPostalCode,
-        });
-      }
+			if (filters.propertyState) {
+				query.andWhere("business.state ILIKE :propertyState", {
+					propertyState: `%${filters.propertyState}%`,
+				});
+			}
 
-      if (filters.minRating !== undefined) {
-        query.andWhere('review.stars >= :minRating', {
-          minRating: filters.minRating,
-        });
-      }
+			if (filters.propertyPostalCode) {
+				query.andWhere("business.postalCode = :propertyPostalCode", {
+					propertyPostalCode: filters.propertyPostalCode,
+				});
+			}
 
-      if (filters.maxRating !== undefined) {
-        query.andWhere('review.stars <= :maxRating', {
-          maxRating: filters.maxRating,
-        });
-      }
+			if (filters.minRating !== undefined) {
+				query.andWhere("review.stars >= :minRating", {
+					minRating: filters.minRating,
+				});
+			}
 
-      if (filters.channel) {
-        query.andWhere('review.channel = :channel', {
-          channel: filters.channel,
-        });
-      }
+			if (filters.maxRating !== undefined) {
+				query.andWhere("review.stars <= :maxRating", {
+					maxRating: filters.maxRating,
+				});
+			}
 
-      if (filters.type) {
-        query.andWhere('review.type = :type', { type: filters.type });
-      }
+			if (filters.channel) {
+				query.andWhere("review.channel = :channel", {
+					channel: filters.channel,
+				});
+			}
 
-      if (filters.from) {
-        query.andWhere('review.date >= :fromDate', {
-          fromDate: new Date(filters.from),
-        });
-      }
+			if (filters.type) {
+				query.andWhere("review.type = :type", { type: filters.type });
+			}
 
-      if (filters.to) {
-        query.andWhere('review.date <= :toDate', {
-          toDate: new Date(filters.to),
-        });
-      }
+			if (filters.from) {
+				query.andWhere("review.date >= :fromDate", {
+					fromDate: new Date(filters.from),
+				});
+			}
 
-      if (filters.approved !== undefined) {
-        query.andWhere('review.approved = :approved', {
-          approved: filters.approved,
-        });
-      }
+			if (filters.to) {
+				query.andWhere("review.date <= :toDate", {
+					toDate: new Date(filters.to),
+				});
+			}
 
-      if (filters.category) {
-        // Filter by category rating - use the already joined categories
-        query.andWhere('categories.category = :category', {
-          category: filters.category,
-        });
-      }
-    }
+			if (filters.approved !== undefined) {
+				query.andWhere("review.approved = :approved", {
+					approved: filters.approved,
+				});
+			}
 
-    return query;
-  }
+			if (filters.category) {
+				// Filter by category rating - use the already joined categories
+				query.andWhere("categories.category = :category", {
+					category: filters.category,
+				});
+			}
+		}
 
-  /**
-   * Get normalized reviews with filtering, sorting, and pagination
-   */
-  async getReviews(
-    filters?: ReviewFilters,
-    sort?: ReviewSort,
-    pagination?: PaginationOptions,
-  ): Promise<PaginatedResponse<NormalizedReview>> {
-    this.logger?.debug('Fetching reviews from database');
+		return query;
+	}
 
-    // Default pagination values
-    const page = pagination?.page || 1;
-    const limit = Math.min(pagination?.limit || 50, 100); // Max 100 per page
-    const skip = (page - 1) * limit;
+	/**
+	 * Get normalized reviews with filtering, sorting, and pagination
+	 */
+	async getReviews(
+		filters?: ReviewFilters,
+		sort?: ReviewSort,
+		pagination?: PaginationOptions
+	): Promise<PaginatedResponse<NormalizedReview>> {
+		this.logger?.debug("Fetching reviews from database");
 
-    let query = this.buildFilteredQuery(filters);
+		// Default pagination values
+		const page = pagination?.page || 1;
+		const limit = Math.min(pagination?.limit || 50, 100); // Max 100 per page
+		const skip = (page - 1) * limit;
 
-    // Get total count before pagination
-    const total = await query.getCount();
+		let query = this.buildFilteredQuery(filters);
 
-    // Apply sorting
-    if (sort) {
-      let sortField: string;
-      if (sort.field === 'propertyName') {
-        sortField = 'business.name';
-      } else if (sort.field === 'overallRating') {
-        sortField = 'review.stars';
-      } else if (sort.field === 'submittedAt') {
-        sortField = 'review.date';
-      } else {
-        sortField = `review.${sort.field}`;
-      }
+		// Get total count before pagination
+		const total = await query.getCount();
 
-      query = query.orderBy(sortField, sort.direction.toUpperCase() as 'ASC' | 'DESC');
-    } else {
-      // Default sort by date descending
-      query = query.orderBy('review.date', 'DESC');
-    }
+		// Apply sorting
+		if (sort) {
+			let sortField: string;
+			if (sort.field === "propertyName") {
+				sortField = "business.name";
+			} else if (sort.field === "overallRating") {
+				sortField = "review.stars";
+			} else if (sort.field === "submittedAt") {
+				sortField = "review.date";
+			} else {
+				sortField = `review.${sort.field}`;
+			}
 
-    // Apply pagination
-    query = query.skip(skip).take(limit);
+			query = query.orderBy(sortField, sort.direction.toUpperCase() as "ASC" | "DESC");
+		} else {
+			// Default sort by date descending
+			query = query.orderBy("review.date", "DESC");
+		}
 
-    const reviews = await query.getMany();
+		// Apply pagination
+		query = query.skip(skip).take(limit);
 
-    // Convert to normalized format (now synchronous since relations are loaded)
-    const normalizedReviews = reviews.map((review) =>
-      this.reviewToNormalized(review),
-    );
+		const reviews = await query.getMany();
 
-    const totalPages = Math.ceil(total / limit);
+		// Convert to normalized format (now synchronous since relations are loaded)
+		const normalizedReviews = reviews.map((review) => this.reviewToNormalized(review));
 
-    return {
-      data: normalizedReviews,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-      },
-    };
-  }
+		const totalPages = Math.ceil(total / limit);
 
-  /**
-   * Get reviews grouped by property
-   */
-  async getReviewsByProperty(): Promise<
-    Record<string, NormalizedReview[]>
-  > {
-    // Get all reviews without pagination for grouping
-    const result = await this.getReviews(undefined, undefined, { page: 1, limit: 10000 });
-    const reviews = result.data;
-    const grouped: Record<string, NormalizedReview[]> = {};
+		return {
+			data: normalizedReviews,
+			pagination: {
+				page,
+				limit,
+				total,
+				totalPages,
+			},
+		};
+	}
 
-    reviews.forEach((review) => {
-      if (!grouped[review.propertyId]) {
-        grouped[review.propertyId] = [];
-      }
-      grouped[review.propertyId].push(review);
-    });
+	/**
+	 * Get reviews grouped by property
+	 */
+	async getReviewsByProperty(): Promise<Record<string, NormalizedReview[]>> {
+		// Get all reviews without pagination for grouping
+		const result = await this.getReviews(undefined, undefined, { page: 1, limit: 10000 });
+		const reviews = result.data;
+		const grouped: Record<string, NormalizedReview[]> = {};
 
-    return grouped;
-  }
+		reviews.forEach((review) => {
+			if (!grouped[review.propertyId]) {
+				grouped[review.propertyId] = [];
+			}
+			grouped[review.propertyId].push(review);
+		});
 
-  /**
-   * Get available channels from the database
-   */
-  async getAvailableChannels(): Promise<string[]> {
-    const channels = await this.reviewRepository
-      .createQueryBuilder('review')
-      .select('DISTINCT review.channel', 'channel')
-      .where('review.channel IS NOT NULL')
-      .orderBy('review.channel', 'ASC')
-      .getRawMany();
+		return grouped;
+	}
 
-    return channels.map((row) => row.channel).filter((ch) => ch);
-  }
+	/**
+	 * Get available channels from the database
+	 */
+	async getAvailableChannels(): Promise<string[]> {
+		const channels = await this.reviewRepository
+			.createQueryBuilder("review")
+			.select("DISTINCT review.channel", "channel")
+			.where("review.channel IS NOT NULL")
+			.orderBy("review.channel", "ASC")
+			.getRawMany();
 
-  /**
-   * Get property information by sourceId
-   */
-  async getPropertyBySourceId(sourceId: string): Promise<{ propertyId: string; propertyName: string; categories: string | null } | null> {
-    const business = await this.businessRepository.findOne({
-      where: { sourceId },
-      select: ['sourceId', 'name', 'categories'],
-    });
+		return channels.map((row) => row.channel).filter((ch) => ch);
+	}
 
-    if (!business) {
-      return null;
-    }
+	/**
+	 * Get property information by sourceId
+	 */
+	async getPropertyBySourceId(
+		sourceId: string
+	): Promise<{ propertyId: string; propertyName: string; categories: string | null } | null> {
+		const business = await this.businessRepository.findOne({
+			where: { sourceId },
+			select: ["sourceId", "name", "categories"],
+		});
 
-    return {
-      propertyId: business.sourceId,
-      propertyName: business.name,
-      categories: business.categories,
-    };
-  }
+		if (!business) {
+			return null;
+		}
 
-  /**
-   * Get property statistics
-   * Returns stats for ALL businesses, including those without reviews
-   * Optimized with database-level aggregations
-   * @param channel Optional channel filter
-   */
-  async getPropertyStats(channel?: string): Promise<
-    Array<{
-      propertyId: string;
-      propertyName: string;
-      averageRating: number | null;
-      totalReviews: number;
-      approvedReviews: number;
-      categoryAverages: Record<string, number>;
-    }>
-  > {
-    // Get all businesses (lightweight query)
-    const businesses = await this.businessRepository.find({
-      order: { name: 'ASC' },
-      select: ['id', 'sourceId', 'name'],
-    });
+		return {
+			propertyId: business.sourceId,
+			propertyName: business.name,
+			categories: business.categories,
+		};
+	}
 
-    // Get aggregated review stats per business using SQL aggregations
-    // Start from businesses to include those without reviews
-    const reviewStatsQuery = this.businessRepository
-      .createQueryBuilder('business')
-      .select('business.sourceId', 'propertyId')
-      .addSelect('COUNT(review.id)', 'totalReviews')
-      .addSelect('SUM(CASE WHEN review.approved = true THEN 1 ELSE 0 END)', 'approvedReviews')
-      .addSelect('AVG(CAST(review.stars AS DECIMAL))', 'averageRating')
-      .leftJoin('business.reviews', 'review');
+	/**
+	 * Get property statistics
+	 * Returns stats for ALL businesses, including those without reviews
+	 * Optimized with database-level aggregations
+	 * @param channel Optional channel filter
+	 */
+	async getPropertyStats(channel?: string): Promise<
+		Array<{
+			propertyId: string;
+			propertyName: string;
+			averageRating: number | null;
+			totalReviews: number;
+			approvedReviews: number;
+			categoryAverages: Record<string, number>;
+		}>
+	> {
+		// Get all businesses (lightweight query)
+		const businesses = await this.businessRepository.find({
+			order: { name: "ASC" },
+			select: ["id", "sourceId", "name"],
+		});
 
-    // Apply channel filter if provided
-    if (channel) {
-      reviewStatsQuery.andWhere('review.channel = :channel', { channel });
-    }
+		// Get aggregated review stats per business using SQL aggregations
+		// Start from businesses to include those without reviews
+		const reviewStatsQuery = this.businessRepository
+			.createQueryBuilder("business")
+			.select("business.sourceId", "propertyId")
+			.addSelect("COUNT(review.id)", "totalReviews")
+			.addSelect("SUM(CASE WHEN review.approved = true THEN 1 ELSE 0 END)", "approvedReviews")
+			.addSelect("AVG(CAST(review.stars AS DECIMAL))", "averageRating")
+			.leftJoin("business.reviews", "review");
 
-    const reviewStats = await reviewStatsQuery
-      .groupBy('business.sourceId')
-      .getRawMany();
+		// Apply channel filter if provided
+		if (channel) {
+			reviewStatsQuery.andWhere("review.channel = :channel", { channel });
+		}
 
-    // Create a map for quick lookup
-    const statsMap = new Map<string, {
-      totalReviews: number;
-      approvedReviews: number;
-      averageRating: number | null;
-    }>();
+		const reviewStats = await reviewStatsQuery.groupBy("business.sourceId").getRawMany();
 
-    reviewStats.forEach((stat) => {
-      statsMap.set(stat.propertyId, {
-        totalReviews: parseInt(stat.totalReviews || '0', 10),
-        approvedReviews: parseInt(stat.approvedReviews || '0', 10),
-        averageRating: stat.averageRating ? parseFloat(stat.averageRating) : null,
-      });
-    });
+		// Create a map for quick lookup
+		const statsMap = new Map<
+			string,
+			{
+				totalReviews: number;
+				approvedReviews: number;
+				averageRating: number | null;
+			}
+		>();
 
-    // Get category averages per business (separate optimized query)
-    const categoryStatsQuery = this.businessRepository
-      .createQueryBuilder('business')
-      .select('business.sourceId', 'propertyId')
-      .addSelect('category.category', 'category')
-      .addSelect('AVG(CAST(category.rating AS DECIMAL))', 'averageRating')
-      .leftJoin('business.reviews', 'review')
-      .leftJoin('review.categories', 'category')
-      .where('category.id IS NOT NULL');
+		reviewStats.forEach((stat) => {
+			statsMap.set(stat.propertyId, {
+				totalReviews: parseInt(stat.totalReviews || "0", 10),
+				approvedReviews: parseInt(stat.approvedReviews || "0", 10),
+				averageRating: stat.averageRating ? parseFloat(stat.averageRating) : null,
+			});
+		});
 
-    // Apply channel filter if provided
-    if (channel) {
-      categoryStatsQuery.andWhere('review.channel = :channel', { channel });
-    }
+		// Get category averages per business (separate optimized query)
+		const categoryStatsQuery = this.businessRepository
+			.createQueryBuilder("business")
+			.select("business.sourceId", "propertyId")
+			.addSelect("category.category", "category")
+			.addSelect("AVG(CAST(category.rating AS DECIMAL))", "averageRating")
+			.leftJoin("business.reviews", "review")
+			.leftJoin("review.categories", "category")
+			.where("category.id IS NOT NULL");
 
-    const categoryStats = await categoryStatsQuery
-      .groupBy('business.sourceId')
-      .addGroupBy('category.category')
-      .getRawMany();
+		// Apply channel filter if provided
+		if (channel) {
+			categoryStatsQuery.andWhere("review.channel = :channel", { channel });
+		}
 
-    // Group category averages by property
-    const categoryMap = new Map<string, Record<string, number>>();
-    categoryStats.forEach((stat) => {
-      if (!categoryMap.has(stat.propertyId)) {
-        categoryMap.set(stat.propertyId, {});
-      }
-      const categories = categoryMap.get(stat.propertyId)!;
-      categories[stat.category] = Math.round(parseFloat(stat.averageRating) * 10) / 10;
-    });
+		const categoryStats = await categoryStatsQuery
+			.groupBy("business.sourceId")
+			.addGroupBy("category.category")
+			.getRawMany();
 
-    // Build final stats array
-    const stats = businesses.map((business) => {
-      const propertyId = business.sourceId;
-      const reviewStat = statsMap.get(propertyId) || {
-        totalReviews: 0,
-        approvedReviews: 0,
-        averageRating: null,
-      };
-      const categoryAverages = categoryMap.get(propertyId) || {};
+		// Group category averages by property
+		const categoryMap = new Map<string, Record<string, number>>();
+		categoryStats.forEach((stat) => {
+			if (!categoryMap.has(stat.propertyId)) {
+				categoryMap.set(stat.propertyId, {});
+			}
+			const categories = categoryMap.get(stat.propertyId)!;
+			categories[stat.category] = Math.round(parseFloat(stat.averageRating) * 10) / 10;
+		});
 
-      return {
-        propertyId,
-        propertyName: business.name,
-        averageRating: reviewStat.averageRating
-          ? Math.round(reviewStat.averageRating * 10) / 10
-          : null,
-        totalReviews: reviewStat.totalReviews,
-        approvedReviews: reviewStat.approvedReviews,
-        categoryAverages,
-      };
-    });
+		// Build final stats array
+		const stats = businesses.map((business) => {
+			const propertyId = business.sourceId;
+			const reviewStat = statsMap.get(propertyId) || {
+				totalReviews: 0,
+				approvedReviews: 0,
+				averageRating: null,
+			};
+			const categoryAverages = categoryMap.get(propertyId) || {};
 
-    return stats;
-  }
+			return {
+				propertyId,
+				propertyName: business.name,
+				averageRating: reviewStat.averageRating ? Math.round(reviewStat.averageRating * 10) / 10 : null,
+				totalReviews: reviewStat.totalReviews,
+				approvedReviews: reviewStat.approvedReviews,
+				categoryAverages,
+			};
+		});
 
-  /**
-   * Toggle approval status of a review
-   */
-  async toggleApproval(reviewId: number): Promise<boolean> {
-    const review = await this.reviewRepository.findOne({
-      where: { id: reviewId },
-    });
+		return stats;
+	}
 
-    if (!review) {
-      throw new Error(`Review with id ${reviewId} not found`);
-    }
+	/**
+	 * Toggle approval status of a review
+	 */
+	async toggleApproval(reviewId: number): Promise<boolean> {
+		const review = await this.reviewRepository.findOne({
+			where: { id: reviewId },
+		});
 
-    review.approved = !review.approved;
-    await this.reviewRepository.save(review);
+		if (!review) {
+			throw new Error(`Review with id ${reviewId} not found`);
+		}
 
-    this.logger?.log(
-      `Review ${reviewId} ${review.approved ? 'approved' : 'unapproved'}`,
-    );
+		review.approved = !review.approved;
+		await this.reviewRepository.save(review);
 
-    return review.approved;
-  }
+		this.logger?.log(`Review ${reviewId} ${review.approved ? "approved" : "unapproved"}`);
 
-  /**
-   * Get only approved reviews for public display
-   */
-  async getApprovedReviews(
-    propertyId?: string,
-    pagination?: PaginationOptions,
-  ): Promise<PaginatedResponse<NormalizedReview>> {
-    const filters: ReviewFilters = { approved: true };
-    if (propertyId) {
-      filters.listingId = propertyId;
-    }
-    return this.getReviews(filters, {
-      field: 'submittedAt',
-      direction: 'desc',
-    }, pagination);
-  }
+		return review.approved;
+	}
+
+	/**
+	 * Get user information by sourceId
+	 */
+	async getUserBySourceId(
+		sourceId: string
+	): Promise<{ userId: string; userName: string; reviewCount: number; averageStars: number | null } | null> {
+		const user = await this.userRepository.findOne({
+			where: { sourceId },
+			select: ["sourceId", "name", "reviewCount", "averageStars"],
+		});
+
+		if (!user) {
+			return null;
+		}
+
+		return {
+			userId: user.sourceId,
+			userName: user.name,
+			reviewCount: user.reviewCount,
+			averageStars: user.averageStars ? Number(user.averageStars) : null,
+		};
+	}
+
+	/**
+	 * Get reviews by user sourceId with pagination
+	 */
+	async getReviewsByUser(
+		userId: string,
+		pagination?: PaginationOptions
+	): Promise<PaginatedResponse<NormalizedReview>> {
+		const user = await this.userRepository.findOne({
+			where: { sourceId: userId },
+		});
+
+		if (!user) {
+			return {
+				data: [],
+				pagination: {
+					page: pagination?.page || 1,
+					limit: pagination?.limit || 50,
+					total: 0,
+					totalPages: 0,
+				},
+			};
+		}
+
+		const query = this.reviewRepository
+			.createQueryBuilder("review")
+			.leftJoinAndSelect("review.business", "business")
+			.leftJoinAndSelect("review.user", "user")
+			.leftJoinAndSelect("review.categories", "categories")
+			.where("user.sourceId = :userId", { userId });
+
+		const total = await query.getCount();
+
+		const page = pagination?.page || 1;
+		const limit = Math.min(pagination?.limit || 50, 100);
+		const skip = (page - 1) * limit;
+
+		query.orderBy("review.date", "DESC");
+		query.skip(skip).take(limit);
+
+		const reviews = await query.getMany();
+
+		const normalizedReviews = reviews.map((review) => this.reviewToNormalized(review));
+
+		const totalPages = Math.ceil(total / limit);
+
+		return {
+			data: normalizedReviews,
+			pagination: {
+				page,
+				limit,
+				total,
+				totalPages,
+			},
+		};
+	}
+
+	/**
+	 * Get only approved reviews for public display
+	 */
+	async getApprovedReviews(
+		propertyId?: string,
+		pagination?: PaginationOptions
+	): Promise<PaginatedResponse<NormalizedReview>> {
+		const filters: ReviewFilters = { approved: true };
+		if (propertyId) {
+			filters.listingId = propertyId;
+		}
+		return this.getReviews(
+			filters,
+			{
+				field: "submittedAt",
+				direction: "desc",
+			},
+			pagination
+		);
+	}
 }

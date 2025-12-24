@@ -85,3 +85,27 @@ export function useProperty(propertyId?: string) {
 		staleTime: 10 * 60 * 1000, // Cache for 10 minutes
 	});
 }
+
+/**
+ * Hook to fetch user information by userId
+ */
+export function useUser(userId?: string) {
+	return useQuery({
+		queryKey: ["user", userId],
+		queryFn: () => reviewsApi.getUser(userId!),
+		enabled: !!userId,
+		staleTime: 10 * 60 * 1000, // Cache for 10 minutes
+	});
+}
+
+/**
+ * Hook to fetch reviews by user ID with pagination
+ */
+export function useReviewsByUser(userId?: string, page?: number, limit?: number) {
+	return useQuery({
+		queryKey: [...reviewKeys.all, "byUser", userId, page, limit],
+		queryFn: () => reviewsApi.getReviewsByUser(userId!, page, limit),
+		enabled: !!userId,
+		placeholderData: (previousData) => previousData,
+	});
+}

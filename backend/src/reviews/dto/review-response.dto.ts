@@ -33,8 +33,8 @@ export class ReviewDto {
   @ApiProperty({ example: '2B N1 A - 29 Shoreditch Heights' })
   propertyName: string;
 
-  @ApiProperty({ enum: ['hostaway', 'google'], example: 'hostaway' })
-  channel: 'hostaway' | 'google';
+  @ApiProperty({ example: 'hostaway' })
+  channel: string;
 
   @ApiProperty({ enum: ['guest-to-host', 'host-to-guest'], example: 'guest-to-host' })
   type: 'guest-to-host' | 'host-to-guest';
@@ -50,6 +50,9 @@ export class ReviewDto {
 
   @ApiProperty({ example: 'John Doe' })
   guestName: string;
+
+  @ApiProperty({ example: 'user-123' })
+  userId: string;
 
   @ApiProperty({ example: '2020-09-15 10:30:00' })
   submittedAt: string;
