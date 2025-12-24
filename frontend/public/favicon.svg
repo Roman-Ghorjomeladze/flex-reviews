@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="starGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#764ba2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#667eea;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="backgroundGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:0.1" />
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background circle with subtle gradient -->
+  <circle cx="32" cy="32" r="31" fill="url(#backgroundGradient)"/>
+  <circle cx="32" cy="32" r="31" fill="none" stroke="url(#starGradient)" stroke-width="1" opacity="0.2"/>
+  
+  <!-- Main star (5-pointed) -->
+  <path d="M32 8 L36.5 22.5 L51.5 22.5 L39 31.5 L43.5 46.5 L32 38 L20.5 46.5 L25 31.5 L12.5 22.5 L27.5 22.5 Z" 
+        fill="url(#starGradient)" 
+        stroke="#ffffff" 
+        stroke-width="0.5"
+        filter="url(#glow)"
+        opacity="0.95"/>
+  
+  <!-- Inner highlight on star -->
+  <path d="M32 14 L35 23 L44 23 L37 29 L40 38 L32 33 L24 38 L27 29 L20 23 L29 23 Z" 
+        fill="#ffffff" 
+        opacity="0.3"/>
+  
+  <!-- Small accent dots around -->
+  <circle cx="20" cy="16" r="1.5" fill="#667eea" opacity="0.4"/>
+  <circle cx="44" cy="16" r="1" fill="#764ba2" opacity="0.4"/>
+  <circle cx="48" cy="40" r="1.5" fill="#667eea" opacity="0.4"/>
+  <circle cx="16" cy="40" r="1" fill="#764ba2" opacity="0.4"/>
+  <circle cx="16" cy="28" r="1" fill="#667eea" opacity="0.3"/>
+  <circle cx="48" cy="28" r="1" fill="#764ba2" opacity="0.3"/>
+</svg>
+

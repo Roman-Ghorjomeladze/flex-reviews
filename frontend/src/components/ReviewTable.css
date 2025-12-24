@@ -1,0 +1,186 @@
+.review-table-container {
+  overflow-x: auto;
+}
+
+.review-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.review-table thead {
+  background-color: #f9fafb;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.review-table th {
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.review-table td {
+  padding: 1rem 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.review-table tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+.review-table tbody tr.approved {
+  background-color: #f0fdf4;
+}
+
+.property-cell {
+  max-width: 200px;
+}
+
+.property-name {
+  font-weight: 500;
+  color: #333;
+}
+
+.guest-cell {
+  font-weight: 500;
+  color: #555;
+}
+
+.rating-cell {
+  text-align: center;
+}
+
+.rating-badge {
+  display: inline-block;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.no-rating {
+  color: #999;
+  font-style: italic;
+}
+
+.categories-cell {
+  max-width: 250px;
+}
+
+.categories-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.category-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.category-name {
+  color: #666;
+}
+
+.category-rating {
+  font-weight: 600;
+  color: #333;
+}
+
+.comment-cell {
+  max-width: 300px;
+}
+
+.comment-text {
+  color: #555;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.date-cell {
+  color: #666;
+  white-space: nowrap;
+}
+
+.type-cell {
+  text-align: center;
+}
+
+.type-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  background-color: #e0e7ff;
+  color: #4338ca;
+}
+
+.approval-cell {
+  text-align: center;
+}
+
+.approval-toggle {
+  padding: 0.5rem 1rem;
+  border: 2px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.approval-toggle:hover {
+  transform: scale(1.05);
+}
+
+.approval-toggle.approved {
+  background-color: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+
+.approval-toggle.not-approved {
+  background-color: white;
+  color: #6b7280;
+  border-color: #d1d5db;
+}
+
+.approval-toggle.not-approved:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: #666;
+}
+
+@media (max-width: 1200px) {
+  .review-table {
+    font-size: 0.85rem;
+  }
+
+  .review-table th,
+  .review-table td {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .comment-cell {
+    max-width: 200px;
+  }
+}
+

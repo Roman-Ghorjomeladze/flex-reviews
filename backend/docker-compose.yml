@@ -1,0 +1,20 @@
+services:
+    postgres:
+        image: postgres:15-alpine
+        container_name: reviews-postgres
+        environment:
+            POSTGRES_USER: reviews_user
+            POSTGRES_PASSWORD: reviews_password
+            POSTGRES_DB: reviews_db
+        ports:
+            - "5434:5432"
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U reviews_user -d reviews_db"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+volumes:
+    postgres_data:
