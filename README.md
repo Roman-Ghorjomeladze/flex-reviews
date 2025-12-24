@@ -5,6 +5,7 @@ A comprehensive reviews management system for managing guest reviews across mult
 ## About
 
 This application provides a complete solution for managing property reviews:
+
 - **Manager Dashboard**: View, filter, sort, and approve reviews across all properties
 - **Public Display Pages**: Property-specific pages showing only approved reviews
 - **Analytics**: Property statistics, average ratings, and category breakdowns
@@ -13,12 +14,14 @@ This application provides a complete solution for managing property reviews:
 ## Tech Stack
 
 ### Backend
+
 - **NestJS** - Enterprise Node.js framework with TypeScript
 - **PostgreSQL** - Relational database
 - **TypeORM** - Object-Relational Mapping
 - **Docker** - Database containerization
 
 ### Frontend
+
 - **React 18** - UI library with hooks
 - **TypeScript** - Type-safe development
 - **Vite** - Fast build tool and dev server
@@ -47,35 +50,40 @@ This application provides a complete solution for managing property reviews:
 ### Installation
 
 1. **Install dependencies:**
-   ```bash
-   npm run install:all
-   ```
+
+    ```bash
+    npm run install:all
+    ```
 
 2. **Setup database:**
-   ```bash
-   cd backend
-   npm run setup:db
-   ```
-   
-   This will:
-   - Start PostgreSQL container (port 5434)
-   - Seed the database with initial data
 
-   Or manually:
-   ```bash
-   cd backend
-   docker compose up -d
-   npm run seed:run
-   ```
+    ```bash
+    cd backend
+    npm run setup:db
+    ```
+
+    This will:
+    - Start PostgreSQL container (port 5434)
+    - Seed the database with initial data
+
+    Or manually:
+
+    ```bash
+    cd backend
+    docker compose up -d
+    npm run seed:run
+    ```
 
 ### Running the Application
 
 **From root directory (runs both backend and frontend):**
+
 ```bash
 npm run dev
 ```
 
 **Or run separately:**
+
 ```bash
 # Terminal 1: Backend (http://localhost:3000)
 npm run dev:backend
@@ -87,7 +95,8 @@ npm run dev:frontend
 ### Access
 
 - **Manager Dashboard**: http://localhost:5173/
-- **Public Review Page**: http://localhost:5173/property/{propertyId}
+- **Public Property Reviews Page**: http://localhost:5173/property/{propertyId}
+- **Public User Reviews Page**: http://localhost:5173/user/{propertyId}
 - **API Swagger Docs**: http://localhost:3000/api/docs
 
 ## Database
@@ -100,6 +109,7 @@ The application uses PostgreSQL with the following entities:
 - **Review Categories**: Category-specific ratings (cleanliness, communication, etc.)
 
 **Default Configuration:**
+
 - Host: localhost
 - Port: 5434
 - Database: reviews_db
@@ -109,11 +119,13 @@ The application uses PostgreSQL with the following entities:
 ## Available Scripts
 
 ### Root
+
 - `npm run dev` - Run both backend and frontend concurrently
 - `npm run dev:backend` - Run backend only
 - `npm run dev:frontend` - Run frontend only
 
 ### Backend
+
 - `npm run start:dev` - Start development server
 - `npm run build` - Build for production
 - `npm run setup:db` - Setup database (Docker + seed)
@@ -122,6 +134,7 @@ The application uses PostgreSQL with the following entities:
 - `npm run migration:run` - Run pending migrations
 
 ### Frontend
+
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
@@ -157,10 +170,11 @@ reviews/
 - `GET /api/reviews/properties` - Get property statistics
 - `GET /api/reviews/approved/:propertyId?` - Get approved reviews (public)
 - `GET /api/reviews/property/:propertyId` - Get property information
+- `GET /api/reviews/user/:userId` - Get all reviews of user
 - `GET /api/reviews/channels` - Get distinct review channels
 - `PATCH /api/reviews/:reviewId/approve` - Toggle review approval status
 
-See Swagger documentation at http://localhost:3000/api for detailed API documentation.
+See Swagger documentation at http://localhost:3000/api/docs for detailed API documentation.
 
 ## Google Reviews Integration – Findings
 
